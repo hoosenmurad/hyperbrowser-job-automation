@@ -3,6 +3,9 @@ import { log } from "@/lib/logger";
 import { config } from "@/lib/config";
 import type { TaskResult, ApplicationData, AntiDetectionParams } from "@/types";
 
+// Valid Claude Computer Use models (from Hyperbrowser SDK)
+type ClaudeComputerUseLlm = "claude-3-7-sonnet-20250219" | "claude-sonnet-4-20250514";
+
 export class BrowserAgent {
   private client: Hyperbrowser;
   private anthropicApiKey?: string;
@@ -32,19 +35,15 @@ export class BrowserAgent {
     log.process(`Executing Computer Use task (max steps: ${maxSteps})`);
     log.debug(`Task preview: ${task.slice(0, 100)}...`);
 
-    const params: {
-      task: string;
-      maxSteps: number;
-      keepBrowserOpen: boolean;
-      sessionId?: string;
-      useCustomApiKeys?: boolean;
-      apiKeys?: {
-        anthropic: string;
-      };
-    } = {
+    // Build params with proper typing
+    const params = {
       task,
       maxSteps,
       keepBrowserOpen,
+      llm: "claude-sonnet-4-20250514" as ClaudeComputerUseLlm,
+      sessionId: undefined as string | undefined,
+      useCustomApiKeys: undefined as boolean | undefined,
+      apiKeys: undefined as { anthropic: string } | undefined,
     };
 
     if (sessionId) {
@@ -63,6 +62,9 @@ export class BrowserAgent {
     try {
       log.info("Starting Claude Computer Use task...");
       const response = await this.client.agents.claudeComputerUse.startAndWait(params);
+
+      // DEBUG: Log the actual response to see field names
+      log.info(`DEBUG Response: ${JSON.stringify(response, null, 2)}`);
 
       const data = response.data as {
         finalResult?: string;
@@ -181,7 +183,13 @@ export class BrowserAgent {
 
   async applyToJob(
     jobUrl: string,
-    applicationData: ApplicationData,
+    applicationData: ApplicationData & { 
+      resumeUrl?: string; 
+      resumeText?: string;
+      resumeBase64?: string;  // Base64 encoded PDF
+      resumeFileName?: string;
+      coverLetter?: string;
+    },
     sessionId?: string,
     maxSteps = config.APPLICATION_MAX_STEPS,
     additionalInstructions?: string
@@ -193,35 +201,88 @@ export class BrowserAgent {
       email: applicationData.email,
       hasLinkedin: Boolean(applicationData.linkedin),
       hasGithub: Boolean(applicationData.github),
+      hasResumeUrl: Boolean(applicationData.resumeUrl),
+      hasResumeFile: Boolean(applicationData.resumeBase64),
     });
+
+    // Build file upload instructions
+    let fileUploadInstructions = "";
+    
+    if (applicationData.resumeBase64) {
+      // We have a base64 file - instruct Claude to inject it via JavaScript
+      fileUploadInstructions = `
+      FOR RESUME/CV FILE UPLOAD:
+      When you find a file input element for resume/CV upload:
+      1. Click on the file input to focus it
+      2. Open browser DevTools (F12 or Cmd+Option+I)
+      3. In the Console, run this JavaScript to inject the PDF file:
+      
+      (function() {
+        const b64 = "${applicationData.resumeBase64}";
+        const byteChars = atob(b64);
+        const byteNumbers = new Array(byteChars.length);
+        for (let i = 0; i < byteChars.length; i++) {
+          byteNumbers[i] = byteChars.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], {type: 'application/pdf'});
+        const file = new File([blob], '${applicationData.resumeFileName || "Resume.pdf"}', {type: 'application/pdf'});
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        const input = document.querySelector('input[type="file"]');
+        if (input) {
+          input.files = dt.files;
+          input.dispatchEvent(new Event('change', {bubbles: true}));
+          console.log('Resume uploaded successfully!');
+        }
+      })();
+      
+      4. Close DevTools and verify the file appears as uploaded
+      `;
+    } else if (applicationData.resumeUrl) {
+      fileUploadInstructions = `
+      FOR RESUME/CV UPLOAD:
+      - If there's a URL/link option, use: ${applicationData.resumeUrl}
+      - If there's "Import from LinkedIn" option, use the LinkedIn URL
+      - If only file upload is required with no URL option, note this limitation
+      `;
+    } else {
+      fileUploadInstructions = `
+      FOR RESUME/CV UPLOAD:
+      - Use "Import from LinkedIn" if available
+      - Or note that resume file is needed but not provided
+      `;
+    }
 
     const task = `
       Apply to the job at this URL: ${jobUrl}
       
-      Use this information to fill out the application:
-      Name: ${applicationData.name}
-      Email: ${applicationData.email}
-      Phone: ${applicationData.phone}
-      LinkedIn: ${applicationData.linkedin || ""}
-      GitHub: ${applicationData.github || ""}
+      APPLICANT INFORMATION:
+      - Name: ${applicationData.name}
+      - Email: ${applicationData.email}
+      - Phone: ${applicationData.phone}
+      - LinkedIn: ${applicationData.linkedin || "Not provided"}
+      - GitHub: ${applicationData.github || "Not provided"}
       
-      Please:
+      INSTRUCTIONS:
       1. Navigate to the job application page
-      2. Fill out all required fields with the provided information
-      3. If there's a resume upload option, mention that a resume upload is needed (but don't actually upload)
-      4. For cover letters or additional questions:
-         - Keep responses professional but personable
-         - Highlight relevant experience
-         - Express genuine enthusiasm
-      5. Review the application before submitting
-      6. Only submit if everything looks correct
-      7. Take a screenshot of the confirmation page if successful
-      8. If the application requires creating an account, do so with the provided email
+      2. Fill out ALL required fields with the information above
+      
+      ${fileUploadInstructions}
+      
+      FOR COVER LETTER OR TEXT QUESTIONS:
+      ${applicationData.coverLetter 
+        ? `Use this cover letter: ${applicationData.coverLetter}`
+        : `Write a brief, professional response highlighting relevant experience and enthusiasm for the role.`}
+      
+      FINAL STEPS:
+      1. Review all fields before submitting
+      2. Submit the application if everything is complete
+      3. Take note of any confirmation message or number
       
       ${additionalInstructions || ""}
       
-      Be careful and thorough - this is a real job application.
-      If you encounter any errors or the application cannot be completed, please explain why.
+      IMPORTANT: This is a real job application. Be thorough and accurate.
     `;
 
     return this.executeComputerUseTask(

@@ -139,3 +139,20 @@ export async function buildAIContext(): Promise<string> {
   return context;
 }
 
+/**
+ * Get resume PDF as base64 string for direct file upload injection
+ * This allows Claude to inject the file into file input elements via JavaScript
+ */
+export async function getResumeBase64(): Promise<string | undefined> {
+  try {
+    await fs.access(RESUME_PATH);
+    const pdfBuffer = await fs.readFile(RESUME_PATH);
+    const base64 = pdfBuffer.toString("base64");
+    log.success(`Resume loaded as base64: ${Math.round(base64.length / 1024)}KB`);
+    return base64;
+  } catch {
+    log.warn("Resume.pdf not found for base64 encoding");
+    return undefined;
+  }
+}
+

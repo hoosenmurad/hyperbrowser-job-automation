@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getHyperbrowserClient } from "@/lib/hyperbrowser/client";
 import { BrowserAgent } from "@/lib/hyperbrowser/browser-agent";
 import { getJobTracker, JobStatus } from "@/lib/job-tracker";
-import { loadPersonalInfo } from "@/lib/resume/parser";
+import { loadPersonalInfo, parseResume, getResumeBase64 } from "@/lib/resume/parser";
 import { config } from "@/lib/config";
 import { log } from "@/lib/logger";
-import type { ApplicationData } from "@/types";
 
 // POST /api/jobs/apply - Apply to a job
 export async function POST(request: NextRequest) {
@@ -47,15 +46,25 @@ export async function POST(request: NextRequest) {
 
     log.process(`Starting application for: ${targetUrl}`);
 
-    // Load personal info
-    const personalInfo = await loadPersonalInfo();
+    // Load personal info, resume text, and resume file (base64)
+    const [personalInfo, resumeText, resumeBase64] = await Promise.all([
+      loadPersonalInfo(),
+      parseResume().catch(() => undefined),
+      getResumeBase64().catch(() => undefined), // Get PDF as base64 for file upload
+    ]);
 
-    const applicationData: ApplicationData = {
+    // Build complete application data
+    const applicationData = {
       name: `${personalInfo.first_name || ""} ${personalInfo.last_name || ""}`.trim(),
       email: (personalInfo.email as string) || "",
       phone: (personalInfo.phone as string) || "",
       linkedin: personalInfo.linkedin as string | undefined,
       github: personalInfo.github as string | undefined,
+      resumeUrl: personalInfo.resume_url as string | undefined,
+      resumeText: resumeText,
+      resumeBase64: resumeBase64,  // For direct file injection
+      resumeFileName: "Resume.pdf",
+      coverLetter: personalInfo.cover_letter_template as string | undefined,
     };
 
     if (!applicationData.email) {
@@ -68,6 +77,8 @@ export async function POST(request: NextRequest) {
     log.data("Application data prepared", {
       name: applicationData.name,
       email: applicationData.email,
+      hasResumeUrl: Boolean(applicationData.resumeUrl),
+      hasResumeText: Boolean(applicationData.resumeText),
     });
 
     // Create browser agent and apply
