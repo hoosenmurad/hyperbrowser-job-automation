@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
     },
   },
   // Allow server-side file operations
-  serverExternalPackages: ["pino", "pino-pretty"],
+  serverExternalPackages: ["pino"],
 };
 
 export default nextConfig;

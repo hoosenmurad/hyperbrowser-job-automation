@@ -1,15 +1,14 @@
 import pino from "pino";
 
+// In Next.js server environment, we can't use pino-pretty transport
+// Use simple pino logging that works in all environments
 const logger = pino({
   level: process.env.LOG_LEVEL || "info",
-  transport: {
-    target: "pino-pretty",
-    options: {
-      colorize: true,
-      translateTime: "HH:MM:ss",
-      ignore: "pid,hostname",
-    },
+  formatters: {
+    level: (label) => ({ level: label }),
   },
+  // Simple timestamp format
+  timestamp: () => `,"time":"${new Date().toLocaleTimeString()}"`,
 });
 
 export const log = {
@@ -33,4 +32,3 @@ export const log = {
 };
 
 export { logger };
-
