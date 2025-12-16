@@ -1,14 +1,16 @@
 {
     "target_roles": [
-        "Developer Advocate",
-        "Developer Relations Engineer",
-        "Technical Evangelist",
-        "Developer Experience Engineer",
-        "DevRel Engineer",
-        "Community Engineer",
-        "Technical Content Creator"
+        "Software Engineer",
+        "Full Stack Developer",
+        "Frontend Developer",
+        "Backend Developer",
+        "DevOps Engineer",
+        "System Administrator",
+        "Network Engineer",
+        "Database Administrator",
+        "Security Engineer"
     ],
-    "min_salary": 150000,
+    "min_salary": 60000,
     "max_salary": 250000,
     "preferred_companies": [
         "OpenAI",
@@ -38,14 +40,14 @@
         "Developer Tools"
     ],
     "content_platforms": [
-        "YouTube",
-        "Technical Blogs",
-        "Conference Speaking"
     ],
     "locations": [
-        "San Francisco",
-        "Seattle",
-        "Vancouver",
+        "Cape Town, South Africa",
+        "Singapore",
+        "London, UK",
+        "Dubai, UAE",
+        "San Francisco, CA, USA",
+        "Austin, TX, USA",
         "Remote"
     ],
     "remote_preference": "Remote preferred",

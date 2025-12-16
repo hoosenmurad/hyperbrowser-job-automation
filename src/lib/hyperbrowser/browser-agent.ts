@@ -4,7 +4,7 @@ import { config } from "@/lib/config";
 import type { TaskResult, ApplicationData, AntiDetectionParams } from "@/types";
 
 // Valid Claude Computer Use models (from Hyperbrowser SDK)
-type ClaudeComputerUseLlm = "claude-3-7-sonnet-20250219" | "claude-sonnet-4-20250514";
+type ClaudeComputerUseLlm =  "claude-sonnet-4-20250514";
 
 export class BrowserAgent {
   private client: Hyperbrowser;
