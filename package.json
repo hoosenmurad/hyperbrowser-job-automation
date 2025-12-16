@@ -12,7 +12,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@hyperbrowser/sdk": "^0.55.0",
-    "next": "^15.1.0",
+    "next": "15.1.11",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "pino": "^9.6.0",
@@ -33,4 +33,3 @@
     "eslint-config-next": "^15.1.0"
   }
 }
-
